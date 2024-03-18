@@ -12,7 +12,46 @@ pipeline {
             when {
                 branch 'master'
             }
-            steps {
+            steps {pipeline {
+  agent any
+  stages {
+    stage('Build') {
+      steps {
+        echo 'Running build automation'
+        sh './gradlew build --no-daemon'
+        archiveArtifacts artifacts: 'dist/trainSchedule.zip'
+      }
+    }
+    stage('Build Docker Image') {
+        when {
+            branch 'master'
+        }
+        steps {
+            script {
+                app = docker.build("NewtonCosta/train-schedule")
+                app.inside {
+                    sh 'echo ${curl localhost:8080}'
+                }
+            }
+        }
+    }
+    stage('Push Docker Image'){
+        when {
+            branch 'master'
+        }
+        steps {
+            script {
+                docker.withRegistry('https://demo.goharbor.io/harbor/projects/17/repositories', )
+                app.push("${env.BUILD_NUMBER}")
+                app.push{"latest"}
+            }
+        }
+    }
+  
+  
+  
+  }
+}
                 withCredentials([usernamePassword(credentialsId: 'webserver_login', usernameVariable: 'USERNAME', passwordVariable: 'USERPASS')]) {
                     sshPublisher(
                         failOnError: true,
